@@ -1,0 +1,4 @@
+# 项目配置文件
+base_url: "https://jsonplaceholder.typicode.com"
+timeout: 30
+log_level: "INFO"
