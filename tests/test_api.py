@@ -1,36 +1,53 @@
 import json
+import os
 import pytest
 import allure
 from utils.excel_reader import ExcelReader
 from utils.logger import logger
 
+# test_data 目录路径
+TEST_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "test_data")
+
 
 def load_test_cases():
-    """加载 Excel 测试数据，供 pytest.mark.parametrize 使用"""
-    import os
-    excel_path = os.path.join(
-        os.path.dirname(os.path.dirname(__file__)), "test_data", "test_cases.xlsx"
-    )
-    reader = ExcelReader(excel_path)
-    return reader.read_data()
+    """
+    加载 test_data 目录下所有 Excel 文件的所有 Sheet 测试数据。
+    支持：
+    - 单个 Excel 文件中多个 Sheet（Tab）
+    - 目录下多个 .xlsx 文件
+    每条数据自动附带 _file（文件名）和 _sheet（Sheet名）元数据。
+    """
+    return ExcelReader.load_from_directory(TEST_DATA_DIR)
 
 
-# 在模块加载时读取数据，用于参数化
+# 模块加载时读取所有数据，用于参数化
 test_cases = load_test_cases()
+
+
+def _make_test_id(case: dict, index: int) -> str:
+    """生成可读的测试 ID: Sheet名__用例名"""
+    sheet = case.get("_sheet", "unknown")
+    name = case.get("name", f"case_{index}")
+    return f"{sheet}__{name}"
 
 
 @allure.feature("接口自动化测试")
 class TestApiFromExcel:
-    """基于 Excel 数据的接口自动化测试"""
+    """
+    基于 Excel 数据的接口自动化测试
+
+    数据来源：test_data/ 目录下所有 .xlsx 文件的所有 Sheet。
+    Allure 报告中按 Sheet 名称分组展示（feature），并标注来源文件（tag）。
+    """
 
     @pytest.mark.parametrize(
         "case",
         test_cases,
-        ids=[c.get("name", f"case_{i}") for i, c in enumerate(test_cases)],
+        ids=[_make_test_id(c, i) for i, c in enumerate(test_cases)],
     )
     def test_api(self, http_client, case):
         """
-        通用接口测试：根据 Excel 中的数据逐条执行测试
+        通用接口测试：自动扫描 test_data/ 下所有 Excel 文件、所有 Sheet，逐条执行测试
 
         Excel 列说明:
         - 用例名称: 测试用例名称
@@ -48,10 +65,15 @@ class TestApiFromExcel:
         body_str = case.get("body")
         expected_status = case.get("expected_status", 200)
         expected_fields_str = case.get("expected_fields")
+        source_file = case.get("_file", "")
+        source_sheet = case.get("_sheet", "")
 
+        # Allure 报告：按 Sheet 分组，标注来源文件
         allure.dynamic.title(name)
         allure.dynamic.story(f"{method} {path}")
-        logger.info(f"===== 执行用例: {name} =====")
+        allure.dynamic.feature(source_sheet or "接口自动化测试")
+        allure.dynamic.tag(source_file)
+        logger.info(f"===== 执行用例: [{source_file} / {source_sheet}] {name} =====")
 
         # 解析请求头和请求参数
         headers = ExcelReader.parse_json_field(headers_str)

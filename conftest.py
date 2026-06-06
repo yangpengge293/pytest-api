@@ -29,7 +29,6 @@ def http_client(config):
 
 @pytest.fixture(scope="session")
 def test_data():
-    """从 Excel 加载测试数据"""
-    excel_path = os.path.join(BASE_DIR, "test_data", "test_cases.xlsx")
-    reader = ExcelReader(excel_path)
-    return reader.read_data()
+    """从 test_data 目录下所有 Excel 文件的所有 Sheet 加载测试数据"""
+    data_dir = os.path.join(BASE_DIR, "test_data")
+    return ExcelReader.load_from_directory(data_dir)
