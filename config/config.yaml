@@ -1,4 +1,18 @@
 # 项目配置文件
-base_url: "https://jsonplaceholder.typicode.com"
+
+# 当前生效的环境名称（可选值：test2 / ready2 / prod）
+# 修改此处即可切换执行对应环境的用例
+active_env: "test2"
+
+# 各环境地址配置
+environments:
+  test2:
+    base_url: "https://jsonplaceholder.typicode.com"
+  ready2:
+    base_url: "https://ready2-api.example.com"
+  prod:
+    base_url: "https://api.example.com"
+
+# 通用配置
 timeout: 30
 log_level: "INFO"

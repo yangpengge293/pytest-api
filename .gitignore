@@ -27,3 +27,13 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Environment
+.env
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Database
+data/

@@ -11,13 +11,41 @@ TEST_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "test_d
 
 def load_test_cases():
     """
-    加载 test_data 目录下所有 Excel 文件的所有 Sheet 测试数据。
-    支持：
-    - 单个 Excel 文件中多个 Sheet（Tab）
-    - 目录下多个 .xlsx 文件
-    每条数据自动附带 _file（文件名）和 _sheet（Sheet名）元数据。
+    加载测试数据 —— 支持两种来源（测试代码无需任何修改）：
+    1. Excel 模式（默认）：扫描 test_data/ 下所有 .xlsx 文件的所有 Sheet
+    2. MySQL 模式：设置环境变量 PLATFORM_SOURCE=mysql 后从数据库读取
     """
-    return ExcelReader.load_from_directory(TEST_DATA_DIR)
+    source = os.environ.get("PLATFORM_SOURCE", "excel")
+
+    if source == "mysql":
+        from backend.database import SessionLocal
+        from backend.models import TestCase, SuiteCase
+        suite_id = os.environ.get("PLATFORM_SUITE_ID")
+        db = SessionLocal()
+        try:
+            if suite_id:
+                case_ids = [
+                    lc.case_id for lc in
+                    db.query(SuiteCase).filter(SuiteCase.suite_id == int(suite_id)).order_by(SuiteCase.sort_order).all()
+                ]
+                cases = db.query(TestCase).filter(TestCase.id.in_(case_ids), TestCase.is_active == True).all()
+            else:
+                cases = db.query(TestCase).filter(TestCase.is_active == True).order_by(TestCase.sort_order).all()
+            result = []
+            for c in cases:
+                result.append({
+                    "name": c.name, "method": c.method, "path": c.path,
+                    "headers": c.headers, "body": c.body,
+                    "expected_status": c.expected_status or 200,
+                    "expected_fields": c.expected_fields,
+                    "_file": f"mysql_case_{c.id}", "_sheet": c.module or "default",
+                })
+            logger.info(f"[MySQL] 加载 {len(result)} 条用例")
+            return result
+        finally:
+            db.close()
+    else:
+        return ExcelReader.load_from_directory(TEST_DATA_DIR)
 
 
 # 模块加载时读取所有数据，用于参数化
